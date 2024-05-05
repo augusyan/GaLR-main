@@ -1,0 +1,5 @@
+remote: fatal: pack exceeds maximum allowed size (2.00 GiB)        
+error: 远程解包失败：index-pack failed
+To github.com:augusyan/GaLR-main.git
+ ! [remote rejected] main -> main (failed)
+error: 无法推送一些引用到 'git@github.com:augusyan/GaLR-main.git'
