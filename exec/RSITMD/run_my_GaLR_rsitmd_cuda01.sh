@@ -1,5 +1,5 @@
 # cd ../..
-CARD=0
+CARD=1
 
 CUDA_VISIBLE_DEVICES=$CARD python my_train.py --path_opt option/RSITMD_mca/RSITMD_GaLR_my.yaml
 

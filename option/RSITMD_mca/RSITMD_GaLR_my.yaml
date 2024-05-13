@@ -27,7 +27,7 @@ model:
     global_local_weight:
         global: None
         local: None
-    name: Dual_GaLR
+    name: MG_GaLR
 dataset:
     datatype: rsitmd
     data_split:
@@ -50,9 +50,9 @@ optim:
 logs:
     eval_step: 1
     print_freq: 10
-    ckpt_save_path: "checkpoint_my_work/"
+    ckpt_save_path: "checkpoint_MultiGrained/"
     logger_name: 'logs/'
 k_fold:
-    experiment_name: 'rsitmd_GaLR_MIDF_3_avg_sim'
+    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo'
     nums: 3
     current_num: 0

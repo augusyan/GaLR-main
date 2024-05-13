@@ -41,6 +41,8 @@ def main(options):
         from layers import GaLR as models
     elif options['model']['name'] == "Dual_GaLR":
         from layers import Dual_GaLR as models
+    elif options['model']['name'] == "MG_GaLR":
+        from layers import MG_GaLR as models
     else:
         raise NotImplementedError
 
