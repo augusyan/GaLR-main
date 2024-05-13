@@ -7,17 +7,19 @@ from torch.autograd import Variable
 from torch.nn.utils.clip_grad import clip_grad_norm
 import numpy as np
 from collections import OrderedDict
-from .all_utils import *
+from .all_utils import SA, SGA,VSA_Module, ExtractFeature, GCN, Skipthoughts_Embedding_Module, cosine_sim,Text_Sent_Embedding_Module,Text_token_Embedding_Module
+import torch.nn.functional as F
+
 import copy
 import ast
 
-    """
-    TODO:
-    1. Bert的sentence-level和token-level
-    2. MIDF的动态部分，在textual部分增加动态
+"""
+TODO:
+1. Bert的sentence-level和token-level
+2. MIDF的动态部分，在textual部分增加动态
 
 
-    """
+"""
     
 class Fusion_MIDF(nn.Module):
     def __init__(self, opt):
@@ -80,76 +82,6 @@ class Fusion_MIDF(nn.Module):
 
         return visual_feature
 
-    
-class BaseModel(nn.Module):
-    def __init__(self, opt={}, vocab_words=[]):
-        super(BaseModel, self).__init__()
-
-        # img feature
-        self.extract_feature = ExtractFeature(opt = opt)
-        self.drop_g_v = nn.Dropout(0.3)
-
-        # vsa feature
-        self.mvsa =VSA_Module(opt = opt)
-
-        # local feature
-        self.local_feature = GCN()
-        self.drop_l_v = nn.Dropout(0.3)
-
-        # text feature
-        ## TODO:1. using sentence_bert and bert for global and local text feature
-        self.text_feature = Skipthoughts_Embedding_Module(
-            vocab= vocab_words,
-            opt = opt
-        )
-
-        # fusion
-        self.fusion = Fusion_MIDF(opt = opt)
-
-        # weight
-        self.gw = opt['global_local_weight']['global']
-        self.lw = opt['global_local_weight']['local']
-
-        self.Eiters = 0
-
-    def forward(self, img, input_local_rep, input_local_adj, text, text_lens=None):
-
-        # extract features, from different layers of ResNet
-        lower_feature, higher_feature, solo_feature = self.extract_feature(img)
-
-        # mvsa featrues, to gain masked remote sensing feature from mvsa mechnism
-        global_feature = self.mvsa(lower_feature, higher_feature, solo_feature)
-#        global_feature = solo_feature
-
-        # extract local feature
-        local_feature = self.local_feature(input_local_adj, input_local_rep)
-        
-        # dynamic fusion @@@
-        visual_feature = self.fusion(global_feature, local_feature)
-
-        # text features
-        text_feature = self.text_feature(text)
-
-        sims = cosine_sim(visual_feature, text_feature)
-        #sims = cosine_sim(self.lw*self.drop_l_v(local_feature) + self.gw*self.drop_g_v(global_feature), text_feature)
-        return sims
-
-def factory(opt, vocab_words, cuda=True, data_parallel=True):
-    opt = copy.copy(opt)
-
-    model = BaseModel(opt, vocab_words)
-
-    if data_parallel:
-        model = nn.DataParallel(model).cuda()
-        if not cuda:
-            raise ValueError
-
-    if cuda:
-        model.cuda()
-
-    return model
-
-
 class Defusion_MIDF(nn.Module):
     def __init__(self, opt):
         super(Defusion_MIDF, self).__init__()
@@ -204,7 +136,6 @@ class Defusion_MIDF(nn.Module):
 
         weight_global = dynamic_weight[:, 0].reshape(feature_gl.shape[0],-1).expand_as(global_feature)
 
-
         weight_local = dynamic_weight[:, 0].reshape(feature_gl.shape[0],-1).expand_as(global_feature)
 
         #  weight_global.size(): torch.Size([100, 512])   weight_local.size(): torch.Size([100, 512]) visual_feature: torch.Size([100, 512])
@@ -214,9 +145,9 @@ class Defusion_MIDF(nn.Module):
 
         return weight_global, weight_local
 
-class DualModel(nn.Module):
+class MG_GaLR(nn.Module):
     def __init__(self, opt={}, vocab_words=[]):
-        super(DualModel, self).__init__()
+        super(MG_GaLR, self).__init__()
 
         # img feature
         self.extract_feature = ExtractFeature(opt = opt)
@@ -232,9 +163,9 @@ class DualModel(nn.Module):
         # text feature
         ## TODO:1. using sentence_bert and bert for global and local text feature
         self.text_feature = Skipthoughts_Embedding_Module(
-            vocab= vocab_words,
-            opt = opt
-        )
+                vocab= vocab_words,
+                opt = opt
+            )
 
         # fusion
         self.fusion = Fusion_MIDF(opt = opt)
@@ -253,7 +184,7 @@ class DualModel(nn.Module):
 
         # mvsa featrues, to gain masked remote sensing feature from mvsa mechnism
         global_feature = self.mvsa(lower_feature, higher_feature, solo_feature)
-#        global_feature = solo_feature
+        # global_feature = solo_feature
 
         # extract local feature
         local_feature = self.local_feature(input_local_adj, input_local_rep)
@@ -263,13 +194,15 @@ class DualModel(nn.Module):
         
         golbal_v_feat, local_v_feat = self.defusion(global_feature, local_feature)
 
-        # text features
+        # @@@ text features
         text_feature = self.text_feature(text)
+        local_t_feat = self.text_feature(text)
+        golbal_t_feat = self.text_feature(text)
 
         sims_merged = cosine_sim(visual_feature, text_feature)
         
-        sims_local = cosine_sim(local_v_feat, text_feature)
-        sims_global = cosine_sim(golbal_v_feat, text_feature)
+        sims_local = cosine_sim(local_v_feat, local_t_feat)
+        sims_global = cosine_sim(golbal_v_feat, golbal_t_feat)
         #sims = cosine_sim(self.lw*self.drop_l_v(local_feature) + self.gw*self.drop_g_v(global_feature), text_feature)
         sims = sims_merged + sims_local + sims_global
         
@@ -278,7 +211,7 @@ class DualModel(nn.Module):
 def myfactory(opt, vocab_words, cuda=True, data_parallel=True):
     opt = copy.copy(opt)
 
-    model = DualModel(opt, vocab_words)
+    model = MG_GaLR(opt, vocab_words)
 
     if data_parallel:
         model = nn.DataParallel(model).cuda()

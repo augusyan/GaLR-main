@@ -16,10 +16,10 @@ import logging
 import click
 
 import utils
-import data
+import my_data
 import my_engine
 
-from vocab import deserialize_vocab
+from my_vocab import deserialize_vocab
 
 def parser_options():
     # Hyper Parameters setting

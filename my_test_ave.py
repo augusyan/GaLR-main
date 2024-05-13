@@ -13,10 +13,10 @@ import yaml
 import logging
 
 import utils
-import data
+import my_data
 import my_engine
 
-from vocab import deserialize_vocab
+from my_vocab import deserialize_vocab
 import mytools
 
 def parser_options():
@@ -33,12 +33,13 @@ def parser_options():
     return options
 
 def main(options):
-
     # choose model
     if options['model']['name'] == "GaLR":
         from layers import GaLR as models
     elif options['model']['name'] == "Dual_GaLR":
         from layers import Dual_GaLR as models
+    elif options['model']['name'] == "MG_GaLR":
+        from layers import MG_GaLR as models
     else:
         raise NotImplementedError
 

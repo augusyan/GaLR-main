@@ -12,7 +12,7 @@ detection/
 echo_logs/
 seq2vec/
 vocab/
-
+checkpoint_MultiGrained/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

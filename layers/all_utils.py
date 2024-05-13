@@ -11,6 +11,8 @@ from torchvision.models.resnet import resnet18
 import torch.nn.functional as F
 import math
 from layers import seq2vec
+from layers import model_bert
+from layers import model_sentence_transformer
 from torch.autograd import Variable
 
 class FC(nn.Module):
@@ -316,6 +318,7 @@ class VSA_Module(nn.Module):
 
         return l2norm(solo_feature, -1)
 
+# in 2400 out 512
 class Skipthoughts_Embedding_Module(nn.Module):
     def __init__(self, vocab, opt, out_dropout=-1):
         super(Skipthoughts_Embedding_Module, self).__init__()
@@ -351,6 +354,8 @@ def cosine_sim(im, s):
     s = l2norm(s, dim=-1)
     w12 = im.mm(s.t())
     return w12
+
+
 # ====================================================================
 # About GCN
 class GCN(nn.Module):
@@ -384,8 +389,50 @@ class GCN(nn.Module):
         return l2norm(self.out(X), -1)
 
 
+# ====================================================================
+# sentence embedding module
 
+# in 2400 out 512
+class Text_Sent_Embedding_Module(nn.Module):
+    def __init__(self, vocab, opt, out_dropout=-1):
+        super(Text_Sent_Embedding_Module, self).__init__()
+        self.opt = opt
+        self.vocab_words = vocab
 
+        self.seq2vec = seq2vec.factory(self.vocab_words, self.opt['seq2vec'], self.opt['seq2vec']['dropout'])
+
+        self.to_out = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
+        self.dropout = out_dropout
+
+    def forward(self, input_text ):
+        x_t_vec = self.seq2vec(input_text)
+        out = F.relu(self.to_out(x_t_vec))
+        if self.dropout >= 0:
+            out = F.dropout(out, self.dropout)
+
+        return out
+
+class Text_token_Embedding_Module(nn.Module):
+    def __init__(self, opt, out_dropout=-1):
+        super(Text_token_Embedding_Module, self).__init__()
+        self.opt = opt
+        self.bert= model_bert.BertModel(self.opt['bert']['bert_dir'])
+
+        self.to_out = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
+        self.dropout = out_dropout
+
+    def forward(self, input_text ):
+        x_t_vec = self.bert(input_text)
+        x_t_vec = self.bert(support['input_ids'], token_type_ids=support['token_type_ids'],
+                                               attention_mask=support['attention_mask'])# ,output_all_encoded_layers=False
+        cls_t_vec = x_t_vec['pooler_output']
+        
+        
+        out = F.relu(self.to_out(x_t_vec))
+        if self.dropout >= 0:
+            out = F.dropout(out, self.dropout)
+
+        return out
 
 
 

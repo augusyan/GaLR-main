@@ -28,6 +28,9 @@ model:
         global: None
         local: None
     name: MG_GaLR
+    bert:
+        bert_dir: '../plm/bert-base-uncased'
+        sentence_bert_dir: '../plm/all-mpnet-base-v2'
 dataset:
     datatype: rsitmd
     data_split:
