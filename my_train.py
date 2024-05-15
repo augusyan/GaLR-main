@@ -57,7 +57,7 @@ def main(options):
 
     elif options['model']['name'] == "MG_GaLR":
         from layers import MG_GaLR as models
-        train_loader, val_loader = my_data.get_loaders_bert(vocab, options)
+        train_loader, val_loader = my_data.get_test_loader_bert(vocab, options)
     else:
         raise NotImplementedError
     

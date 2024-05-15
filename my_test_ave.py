@@ -33,23 +33,28 @@ def parser_options():
     return options
 
 def main(options):
-    # choose model
-    if options['model']['name'] == "GaLR":
-        from layers import GaLR as models
-    elif options['model']['name'] == "Dual_GaLR":
-        from layers import Dual_GaLR as models
-    elif options['model']['name'] == "MG_GaLR":
-        from layers import MG_GaLR as models
-    else:
-        raise NotImplementedError
+
 
     # make vocab
     vocab = deserialize_vocab(options['dataset']['vocab_path'])
     vocab_word = sorted(vocab.word2idx.items(), key=lambda x: x[1], reverse=False)
     vocab_word = [tup[0] for tup in vocab_word]
-
-    # Create dataset, model, criterion and optimizer
-    test_loader = my_data.get_test_loader(vocab, options)
+    
+    # choose model, Create dataset, model, criterion and optimizer
+    if options['model']['name'] == "GaLR":
+        from layers import GaLR as models
+        test_loader = my_data.get_test_loader(vocab, options)
+    elif options['model']['name'] == "Dual_GaLR":
+        from layers import Dual_GaLR as models
+        test_loader = my_data.get_test_loader(vocab, options)
+    elif options['model']['name'] == "MG_GaLR":
+        from layers import MG_GaLR as models
+        test_loader = my_data.get_test_loader(vocab, options)
+    else:
+        raise NotImplementedError
+    
+    # 
+    
     
     model = models.myfactory(options['model'],
                            vocab_word,
