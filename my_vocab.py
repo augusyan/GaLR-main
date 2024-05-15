@@ -143,10 +143,42 @@ def build_vocab(data_path, data_name, caption_file, threshold):
     return vocab
 
 #========================================================================
-# BERT Tokenizer内容
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-def process_sentence(sentence):
+# def bert_tokenizer(bert_path, text):
+#     """
+#     使用BERT的tokenizer进行分词。
+
+#     参数:
+#     - text: 要分词的文本，字符串。
+
+#     返回:
+#     - tokens: 分词后的单词列表。
+#     """
+#     tokenizer = BertTokenizer.from_pretrained(bert_path) # 'bert-base-uncased'
+#     tokens = tokenizer.tokenize(text)
+    
+#     for i, word in enumerate(word_list):
+#         token = self.tokenizer.tokenize(word)
+#         tokens.extend(token)
+#         label = label_list[i]
+#         for m in range(len(token)):
+#             if m == 0:
+#                 labels.append(self.label_mapping[label])
+#             else:
+#                 labels.append(self.label_mapping["X"])
+#         if len(tokens) >= self.max_seq - 1:
+#             tokens = tokens[0:(self.max_seq - 2)]
+#             labels = labels[0:(self.max_seq - 2)]
+
+#         encode_dict = self.tokenizer.encode_plus(tokens, max_length=self.max_seq, truncation=True, padding='max_length')
+#         input_ids, token_type_ids, attention_mask = encode_dict['input_ids'], encode_dict['token_type_ids'], encode_dict['attention_mask']
+#         labels = [self.label_mapping["[CLS]"]] + labels + [self.label_mapping["[SEP]"]] + [self.ignore_idx]*(self.max_seq-len(labels)-2)
+        
+        
+#     return tokens
+
+# BERT Tokenizer内容
+def process_sentence(sentence,tokenizer):
     # 对句子进行编码
     encoded = tokenizer.encode_plus(
         sentence,
@@ -173,51 +205,20 @@ def process_sentence(sentence):
     return result
 
 
-def bert_tokenizer(text):
-    """
-    使用BERT的tokenizer进行分词。
-
-    参数:
-    - text: 要分词的文本，字符串。
-
-    返回:
-    - tokens: 分词后的单词列表。
-    """
-    from transformers import BertTokenizer
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    tokens = tokenizer.tokenize(text)
+def build_bert_vocab(bert_path,data_name,save_name):
+    tokenizer = BertTokenizer.from_pretrained(bert_path) # opt['bert']['bert_dir']
     
-    for i, word in enumerate(word_list):
-            token = self.tokenizer.tokenize(word)
-            tokens.extend(token)
-            label = label_list[i]
-            for m in range(len(token)):
-                if m == 0:
-                    labels.append(self.label_mapping[label])
-                else:
-                    labels.append(self.label_mapping["X"])
-        if len(tokens) >= self.max_seq - 1:
-            tokens = tokens[0:(self.max_seq - 2)]
-            labels = labels[0:(self.max_seq - 2)]
+    with open(data_name, 'r') as f: # data_name
+        sentences = f.readlines()
 
-        encode_dict = self.tokenizer.encode_plus(tokens, max_length=self.max_seq, truncation=True, padding='max_length')
-        input_ids, token_type_ids, attention_mask = encode_dict['input_ids'], encode_dict['token_type_ids'], encode_dict['attention_mask']
-        labels = [self.label_mapping["[CLS]"]] + labels + [self.label_mapping["[SEP]"]] + [self.ignore_idx]*(self.max_seq-len(labels)-2)
-        
-        
-    return tokens
+    results = []
+    for sentence in sentences:
+        result = process_sentence(sentence.strip(), tokenizer)
+        results.append(result)
 
-with open('input.txt', 'r') as f:
-    sentences = f.readlines()
-
-results = []
-for sentence in sentences:
-    result = process_sentence(sentence.strip())
-    results.append(result)
-
-with open('output.json', 'w') as f:
-    json.dump(results, f, indent=4)
-
+    with open(save_name, 'w') as f:
+        json.dump(results, f, indent=4)
+    
 
 def main(data_path, data_name):
     vocab = build_vocab(data_path, data_name, caption_file=annotations, threshold=5)

@@ -31,6 +31,7 @@ model:
     bert:
         bert_dir: '../plm/bert-base-uncased'
         sentence_bert_dir: '../plm/all-mpnet-base-v2'
+        max_length: 60
 dataset:
     datatype: rsitmd
     data_split:

@@ -49,7 +49,7 @@ def main(options):
     vocab_word = [tup[0] for tup in vocab_word]
 
     # Create dataset, model, criterion and optimizer
-    test_loader = data.get_test_loader(vocab, options)
+    test_loader = my_data.get_test_loader(vocab, options)
     
     model = models.myfactory(options['model'],
                            vocab_word,

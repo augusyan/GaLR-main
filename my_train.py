@@ -36,17 +36,8 @@ def parser_options():
     return options
 
 def main(options):
-    # choose model
-    if options['model']['name'] == "GaLR":
-        from layers import GaLR as models
-    elif options['model']['name'] == "Dual_GaLR":
-        from layers import Dual_GaLR as models
-    elif options['model']['name'] == "MG_GaLR":
-        from layers import MG_GaLR as models
-    else:
-        raise NotImplementedError
-
-    # make ckpt save dir
+    
+     # make ckpt save dir
     if not os.path.exists(options['logs']['ckpt_save_path']):
         os.makedirs(options['logs']['ckpt_save_path'])
 
@@ -55,8 +46,20 @@ def main(options):
     vocab_word = sorted(vocab.word2idx.items(), key=lambda x: x[1], reverse=False)
     vocab_word = [tup[0] for tup in vocab_word]
 
-    # Create dataset, model, criterion and optimizer
-    train_loader, val_loader = data.get_loaders(vocab, options)
+    # choose model, Create dataset, model, criterion and optimizer
+    if options['model']['name'] == "GaLR":
+        from layers import GaLR as models
+        train_loader, val_loader = my_data.get_loaders(vocab, options)
+
+    elif options['model']['name'] == "Dual_GaLR":
+        from layers import Dual_GaLR as models
+        train_loader, val_loader = my_data.get_loaders(vocab, options)
+
+    elif options['model']['name'] == "MG_GaLR":
+        from layers import MG_GaLR as models
+        train_loader, val_loader = my_data.get_loaders_bert(vocab, options)
+    else:
+        raise NotImplementedError
     
     # model define
     model = models.myfactory(options['model'],
