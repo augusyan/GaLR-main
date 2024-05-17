@@ -270,10 +270,16 @@ class PrecompDatasetBert(data.Dataset):
         if len(bert_tokens) >= self.bert_len - 1:
             bert_tokens = bert_tokens[0:(self.bert_len - 2)]
         # print(bert_tokens)
-            
-        encode_dict = self.tokenizer.encode_plus(bert_tokens, max_length=self.bert_len, truncation=True, padding='max_length')
-        input_ids, token_type_ids, attention_mask = encode_dict['input_ids'], encode_dict['token_type_ids'], \
-                                                    encode_dict['attention_mask']
+        if bert_tokens==[]:
+            input_ids=[0]*self.bert_len
+            token_type_ids=[0]*self.bert_len
+            attention_mask=[0]*self.bert_len  
+            # raise ValueError
+        else:
+                
+            encode_dict = self.tokenizer.encode_plus(bert_tokens, max_length=self.bert_len, truncation=True, padding='max_length')
+            input_ids, token_type_ids, attention_mask = encode_dict['input_ids'], encode_dict['token_type_ids'], \
+                                                        encode_dict['attention_mask']
         input_ids=torch.LongTensor(input_ids)
         token_type_ids=torch.LongTensor(token_type_ids) 
         attention_mask=torch.LongTensor(attention_mask)
@@ -366,7 +372,7 @@ def get_precomp_loader_bert(data_split, vocab, batch_size=100,
 def get_loaders_bert(vocab, opt):
     train_loader = get_precomp_loader_bert( 'train', vocab,
                                       opt['dataset']['batch_size'], True, opt['dataset']['workers'], opt=opt)
-    val_loader = get_precomp_loader( 'val', vocab,
+    val_loader = get_precomp_loader_bert( 'val', vocab,
                                     opt['dataset']['batch_size_val'], False, opt['dataset']['workers'], opt=opt)
     return train_loader, val_loader
 
@@ -376,6 +382,66 @@ def get_test_loader_bert(vocab, opt):
                                       opt['dataset']['batch_size_val'], False, opt['dataset']['workers'], opt=opt)
     return test_loader
 
+# @@ 用来测试图文检索的dataloader
+def validate(val_loader):
+
+
+    input_visual = np.zeros((len(val_loader.dataset), 3, 256, 256))
+    input_local_rep = np.zeros((len(val_loader.dataset), 20, 20))
+    input_local_adj = np.zeros((len(val_loader.dataset), 20, 20))
+
+    input_text = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    input_text_lengeth = [0]*len(val_loader.dataset)
+    
+    
+    for i, val_data in enumerate(val_loader):
+
+        images, local_rep, local_adj, captions, lengths, ids, \
+            input_ids, token_type_ids, attention_mask= val_data
+        
+        print("#3")
+        print("input_ids size",input_ids.size())
+        print("token_type_ids size",token_type_ids.size())
+        print("attention_mask size",attention_mask.size())
+        print("captions size",captions.size())
+        
+        for (id, img,rep,adj, cap, l) in zip(ids, (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), lengths):
+            input_visual[id] = img
+            input_local_rep[id] = rep
+            input_local_adj[id] = adj
+
+            input_text[id, :captions.size(1)] = cap
+            input_text_lengeth[id] = l
+            
+        break
+    input_visual = np.array([input_visual[i] for i in range(0, len(input_visual), 5)])
+    input_local_rep = np.array([input_local_rep[i] for i in range(0, len(input_local_rep), 5)])
+    input_local_adj = np.array([input_local_adj[i] for i in range(0, len(input_local_adj), 5)])
+
+    print("input_visual size",np.size(input_visual))
+    print("input_local_rep size",np.size(input_local_rep))
+    print("input_local_adj size",np.size(input_local_adj))
+    print("input_text size",np.size(input_text))
+    # print("input_text:",type(input_text))
+    # bert version
+    # d = utils.shard_dis_GaLR_Bert(input_visual, input_local_rep, input_local_adj,\
+    #     input_text, model, lengths=input_text_lengeth)
+
+
+    # (r1i, r5i, r10i, medri, meanri), _ = utils.acc_i2t2(d)
+    # print("Image to text: %.1f, %.1f, %.1f, %.1f, %.1f" %
+    #              (r1i, r5i, r10i, medri, meanri))
+    # (r1t, r5t, r10t, medrt, meanrt), _ = utils.acc_t2i2(d)
+    # print("Text to image: %.1f, %.1f, %.1f, %.1f, %.1f" %
+    #              (r1t, r5t, r10t, medrt, meanrt))
+    # currscore = (r1t + r5t + r10t + r1i + r5i + r10i)/6.0
+
+    # all_score = "r1i:{} r5i:{} r10i:{} medri:{} meanri:{}\n r1t:{} r5t:{} r10t:{} medrt:{} meanrt:{}\n sum:{}\n ------\n".format(
+    #     r1i, r5i, r10i, medri, meanri, r1t, r5t, r10t, medrt, meanrt, currscore
+    # )
+    # print(all_score)
+
+    # return currscore, all_score
 
 if __name__ == '__main__':
     # Test dataloader
@@ -414,15 +480,16 @@ if __name__ == '__main__':
 
         input_text = Variable(captions)
         # print(input_text)
+        print("#1")
         print(input_text.type())
         print(input_text.size())
-        if i>10:
-            break
+
+        break
     
     # 测试bert的dataloader
-    train_loader_bert,_=get_loaders_bert(vocab, options)
+    train_loader_bert,val_loader_bert=get_loaders_bert(vocab, options)
     
-    for i, train_data in enumerate(train_loader_bert):
+    for i, train_data in enumerate(val_loader_bert):
         images, local_rep, local_adj, captions, lengths, ids,\
         input_ids, token_type_ids, attention_mask= train_data
         batch_size = images.size(0)
@@ -430,6 +497,10 @@ if __name__ == '__main__':
 
         # print(input_ids)
         input_text = Variable(input_ids)
+        print("#2")
         print(type(input_ids))    
         print(input_ids.size())
         break
+    
+    # 测试bert encoding后的caption度量方式
+    validate(val_loader_bert)

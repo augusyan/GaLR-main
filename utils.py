@@ -404,6 +404,65 @@ def shard_dis_GaLR(images, input_local_rep, input_local_adj, captions, model, sh
     print("infer time:",np.average(all))
     return d
 
+
+# @@ bert embedding for caption
+def shard_dis_GaLR_Bert(images, input_local_rep, input_local_adj, captions, model, input_ids, token_type_ids, attention_mask, shard_size=128, lengths=None):
+    """compute image-caption pairwise distance during validation and test in bert embedding"""
+
+    n_im_shard = (len(images) - 1) // shard_size + 1
+    n_cap_shard = (len(captions) - 1) // shard_size + 1
+
+    d = np.zeros((len(images), len(captions)))
+
+    all = []
+
+    for i in range(n_im_shard):
+        im_start, im_end = shard_size*i, min(shard_size*(i+1), len(images))
+
+        print("======================")
+        print("im_start:",im_start)
+        print("im_end:",im_end)
+
+        for j in range(n_cap_shard):
+
+            sys.stdout.write('\r>> shard_distance batch (%d,%d)' % (i,j))
+            cap_start, cap_end = shard_size * j, min(shard_size * (j + 1), len(captions))
+
+            # update for higher version torch
+            with torch.no_grad():
+                # print("@@ utils \n{}\n{}\n{}".format(type(images),type(captions),type(input_ids)))
+                # print("@@ utils \n{}\n{}\n{}".format(np.size(images),np.size(captions),input_ids.size()))
+                im = Variable(torch.from_numpy(images[im_start:im_end])).float().cuda()
+                local_rep = Variable(torch.from_numpy(input_local_rep[im_start:im_end])).float().cuda()
+                local_adj = Variable(torch.from_numpy(input_local_adj[im_start:im_end])).float().cuda()
+                s = Variable(torch.from_numpy(captions[cap_start:cap_end])).cuda()
+                
+                iidx = input_ids[cap_start:cap_end].cuda()
+                ttids = token_type_ids[cap_start:cap_end].cuda()
+                amask = attention_mask[cap_start:cap_end].cuda()
+                
+                # print("@@@ utils \n{}\n{}\n{}".format(type(im),type(s),type(iidx)))
+                # print("@@@ utils \n{}\n{}\n{}".format(im.size(),s.size(),iidx.size()))
+                
+                
+            # im = Variable(torch.from_numpy(images[im_start:im_end]), volatile=True).float().cuda()
+            # local_rep = Variable(torch.from_numpy(input_local_rep[im_start:im_end]), volatile=True).float().cuda()
+            # local_adj = Variable(torch.from_numpy(input_local_adj[im_start:im_end]), volatile=True).float().cuda()
+
+            # s = Variable(torch.from_numpy(captions[cap_start:cap_end]), volatile=True).cuda()
+            l = lengths[cap_start:cap_end]
+
+            t1 = time.time()
+            sim = model(im, local_rep, local_adj, s,iidx,ttids,amask, l)
+            t2 = time.time()
+            all.append(t2-t1)
+
+            sim = sim.squeeze()
+            d[im_start:im_end, cap_start:cap_end] = sim.data.cpu().numpy()
+    sys.stdout.write('\n')
+    print("infer time:",np.average(all))
+    return d
+
 def save_checkpoint(state, is_best, filename, prefix='', model_name = None):
     tries = 15
     error = None

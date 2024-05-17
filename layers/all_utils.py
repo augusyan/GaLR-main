@@ -11,7 +11,8 @@ from torchvision.models.resnet import resnet18
 import torch.nn.functional as F
 import math
 from layers import seq2vec
-from layers import model_bert
+# from layers import model_bert
+from transformers import BertModel, BertConfig
 from layers import model_sentence_transformer
 from torch.autograd import Variable
 
@@ -412,23 +413,28 @@ class Text_Sent_Embedding_Module(nn.Module):
 
         return out
 
+# @@ merge cls and token level embedding
 class Text_token_Embedding_Module(nn.Module):
     def __init__(self, opt, out_dropout=-1):
         super(Text_token_Embedding_Module, self).__init__()
         self.opt = opt
-        self.bert= model_bert.BertModel(self.opt['bert']['bert_dir'])
+        print(opt)
+        # self.bert_config = BertConfig.from_pretrained(opt['bert']['bert_dir'])
+        self.bert= BertModel.from_pretrained(opt['bert']['bert_dir'])
 
         self.to_out = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
         self.dropout = out_dropout
 
-    def forward(self, input_text ):
-        x_t_vec = self.bert(input_text)
-        x_t_vec = self.bert(support['input_ids'], token_type_ids=support['token_type_ids'],
-                                               attention_mask=support['attention_mask'])# ,output_all_encoded_layers=False
-        cls_t_vec = x_t_vec['pooler_output']
+    def forward(self, input_ids, token_type_ids, attention_mask ):
+        # print("input_ids", type(input_ids))
+        # print("token_type_ids", type(token_type_ids))
+        # print("attention_mask", type(attention_mask))
         
+        x_t_vec = self.bert(input_ids, token_type_ids=token_type_ids,
+                                        attention_mask=attention_mask)# ,output_all_encoded_layers=False
+        cls_t_vec = x_t_vec['pooler_output']        
         
-        out = F.relu(self.to_out(x_t_vec))
+        out = F.relu(self.to_out(cls_t_vec))
         if self.dropout >= 0:
             out = F.dropout(out, self.dropout)
 

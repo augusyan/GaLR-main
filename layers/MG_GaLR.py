@@ -162,14 +162,15 @@ class MG_GaLR(nn.Module):
 
         # text feature
         ## TODO:1. using sentence_bert and bert for global and local text feature
-        self.text_feature = Skipthoughts_Embedding_Module(
-                vocab= vocab_words,
-                opt = opt
-            )
-
+        # self.text_feature = Skipthoughts_Embedding_Module(
+        #         vocab= vocab_words,
+        #         opt = opt
+        #     )
+        self.bert = Text_token_Embedding_Module(opt = opt)
+        
         # fusion
         self.fusion = Fusion_MIDF(opt = opt)
-        self.defusion = Defusion_MIDF(opt = opt)
+        # self.defusion = Defusion_MIDF(opt = opt)
 
         # weight
         self.gw = opt['global_local_weight']['global']
@@ -177,7 +178,8 @@ class MG_GaLR(nn.Module):
 
         self.Eiters = 0
 
-    def forward(self, img, input_local_rep, input_local_adj, text, text_lens=None):
+    def forward(self, img, input_local_rep, input_local_adj, text, input_ids, 
+                token_type_ids, attention_mask,text_lens=None):
 
         # extract features, from different layers of ResNet
         lower_feature, higher_feature, solo_feature = self.extract_feature(img)
@@ -192,19 +194,21 @@ class MG_GaLR(nn.Module):
         # dynamic fusion @@@
         visual_feature = self.fusion(global_feature, local_feature)
         
-        golbal_v_feat, local_v_feat = self.defusion(global_feature, local_feature)
+        # golbal_v_feat, local_v_feat = self.defusion(global_feature, local_feature)
 
-        # @@@ text features
-        text_feature = self.text_feature(text)
-        local_t_feat = self.text_feature(text)
-        golbal_t_feat = self.text_feature(text)
+        # @@@ text features    
+        text_feature= self.bert(input_ids, token_type_ids=token_type_ids,
+                                        attention_mask=attention_mask)    
+        # text_feature = self.text_feature(text)
+        # local_t_feat = self.text_feature(text)
+        # golbal_t_feat = self.text_feature(text)
 
         sims_merged = cosine_sim(visual_feature, text_feature)
         
-        sims_local = cosine_sim(local_v_feat, local_t_feat)
-        sims_global = cosine_sim(golbal_v_feat, golbal_t_feat)
-        #sims = cosine_sim(self.lw*self.drop_l_v(local_feature) + self.gw*self.drop_g_v(global_feature), text_feature)
-        sims = sims_merged + sims_local + sims_global
+        # sims_local = cosine_sim(local_v_feat, local_t_feat)
+        # sims_global = cosine_sim(golbal_v_feat, golbal_t_feat)
+        sims = sims_merged
+        # sims = sims_merged + sims_local + sims_global
         
         return sims
 

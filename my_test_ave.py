@@ -14,7 +14,7 @@ import logging
 
 import utils
 import my_data
-import my_engine
+import engine,my_engine,my_engine_bert
 
 from my_vocab import deserialize_vocab
 import mytools
@@ -44,17 +44,18 @@ def main(options):
     if options['model']['name'] == "GaLR":
         from layers import GaLR as models
         test_loader = my_data.get_test_loader(vocab, options)
+        purge_engine = engine
+
     elif options['model']['name'] == "Dual_GaLR":
         from layers import Dual_GaLR as models
         test_loader = my_data.get_test_loader(vocab, options)
+        purge_engine = my_engine
     elif options['model']['name'] == "MG_GaLR":
         from layers import MG_GaLR as models
-        test_loader = my_data.get_test_loader(vocab, options)
+        test_loader = my_data.get_test_loader_bert(vocab, options)
+        purge_engine = my_engine_bert
     else:
         raise NotImplementedError
-    
-    # 
-    
     
     model = models.myfactory(options['model'],
                            vocab_word,
@@ -74,7 +75,7 @@ def main(options):
         print("=> no checkpoint found at '{}'".format(options['optim']['resume']))
 
     # evaluate on test set
-    sims = my_engine.validate_test(test_loader, model)
+    sims = purge_engine.validate_test(test_loader, model)
 
     # get indicators
     (r1i, r5i, r10i, medri, meanri), _ = utils.acc_i2t2(sims)

@@ -44,15 +44,15 @@ dataset:
     workers: 8
 optim:
     epochs: 20
-    lr: 0.0002
+    lr: 0.00005
     lr_decay_param: 0.7
-    lr_update_epoch: 20
+    lr_update_epoch: 2
     grad_clip: 0
     max_violation: 0
     margin: 0.2
     resume: False
 logs:
-    eval_step: 1
+    eval_step: 3
     print_freq: 10
     ckpt_save_path: "checkpoint_MultiGrained/"
     logger_name: 'logs/'

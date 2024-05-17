@@ -17,7 +17,7 @@ import click
 
 import utils
 import my_data
-import my_engine
+import engine,my_engine,my_engine_bert
 
 from my_vocab import deserialize_vocab
 
@@ -50,14 +50,15 @@ def main(options):
     if options['model']['name'] == "GaLR":
         from layers import GaLR as models
         train_loader, val_loader = my_data.get_loaders(vocab, options)
-
+        purge_engine = engine
     elif options['model']['name'] == "Dual_GaLR":
         from layers import Dual_GaLR as models
         train_loader, val_loader = my_data.get_loaders(vocab, options)
-
+        purge_engine = my_engine
     elif options['model']['name'] == "MG_GaLR":
         from layers import MG_GaLR as models
-        train_loader, val_loader = my_data.get_test_loader_bert(vocab, options)
+        train_loader, val_loader = my_data.get_loaders_bert(vocab, options)
+        purge_engine = my_engine_bert
     else:
         raise NotImplementedError
     
@@ -104,11 +105,11 @@ def main(options):
         utils.adjust_learning_rate(options, optimizer, epoch)
 
         # train for one epoch
-        my_engine.train(train_loader, model, optimizer, epoch, opt=options)
+        purge_engine.train(train_loader, model, optimizer, epoch, opt=options)
 
         # evaluate on validation set
         if epoch % options['logs']['eval_step'] == 0:
-            rsum, all_scores = my_engine.validate(val_loader, model)
+            rsum, all_scores = purge_engine.validate(val_loader, model)
 
             is_best = rsum > best_rsum
             if is_best:
