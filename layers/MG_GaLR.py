@@ -14,8 +14,12 @@ import copy
 import ast
 
 """
+Finished:
+1. Bert的sentence-level替换原来的文本编码
+
+
 TODO:
-1. Bert的sentence-level和token-level
+1.Bert token-level
 2. MIDF的动态部分，在textual部分增加动态
 
 

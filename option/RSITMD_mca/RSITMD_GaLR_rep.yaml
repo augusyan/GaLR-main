@@ -27,12 +27,7 @@ model:
     global_local_weight:
         global: None
         local: None
-    name: MG_GaLR
-    bert:
-        bert_dir: '../plm/bert-base-uncased'
-        sentence_bert_dir: '../plm/all-mpnet-base-v2'
-        max_length: 47
-        dropout_fc: 0.5
+    name: GaLR
 dataset:
     datatype: rsitmd
     data_split:
@@ -42,11 +37,10 @@ dataset:
     local_path: 'detection/representation/RSITMD/rsitmd_local.npy'
     batch_size: 100
     batch_size_val: 70
-    workers: 1
+    workers: 8
 optim:
     epochs: 20
-    lr: 0.0004
-    lr_text: 0.00005
+    lr: 0.0002
     lr_decay_param: 0.7
     lr_update_epoch: 20
     grad_clip: 0
@@ -54,11 +48,11 @@ optim:
     margin: 0.2
     resume: False
 logs:
-    eval_step: 3
+    eval_step: 1
     print_freq: 10
-    ckpt_save_path: "checkpoint_MultiGrained/"
+    ckpt_save_path: "checkpoint/"
     logger_name: 'logs/'
 k_fold:
-    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo1'
+    experiment_name: 'rsitmd_GaLR_MIDF_rep'
     nums: 3
     current_num: 0

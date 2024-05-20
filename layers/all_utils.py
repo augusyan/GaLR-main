@@ -415,7 +415,7 @@ class Text_Sent_Embedding_Module(nn.Module):
 
 # @@ merge cls and token level embedding
 class Text_token_Embedding_Module(nn.Module):
-    def __init__(self, opt, out_dropout=-1):
+    def __init__(self, opt):
         super(Text_token_Embedding_Module, self).__init__()
         self.opt = opt
         print(opt)
@@ -423,12 +423,13 @@ class Text_token_Embedding_Module(nn.Module):
         self.bert= BertModel.from_pretrained(opt['bert']['bert_dir'])
 
         self.to_out = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
-        self.dropout = out_dropout
+        self.dropout = opt['bert']['dropout_fc']
 
     def forward(self, input_ids, token_type_ids, attention_mask ):
         # print("input_ids", type(input_ids))
         # print("token_type_ids", type(token_type_ids))
         # print("attention_mask", type(attention_mask))
+        # self.bert.eval() # freeze bert 暂时取消看看是否会引起nan的问题
         
         x_t_vec = self.bert(input_ids, token_type_ids=token_type_ids,
                                         attention_mask=attention_mask)# ,output_all_encoded_layers=False

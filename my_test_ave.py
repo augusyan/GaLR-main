@@ -18,6 +18,9 @@ import engine,my_engine,my_engine_bert
 
 from my_vocab import deserialize_vocab
 import mytools
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
+
 
 def parser_options():
     # Hyper Parameters setting

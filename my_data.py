@@ -173,8 +173,8 @@ def get_test_loader(vocab, opt):
                                       opt['dataset']['batch_size_val'], False, opt['dataset']['workers'], opt=opt)
     return test_loader
 
-# ==========================================================================
-# ==========================================================================
+# ====================================================================================================================================================
+# ====================================================================================================================================================
 # 加入bert的dataloader
 
 class PrecompDatasetBert(data.Dataset):
@@ -317,10 +317,10 @@ class PrecompDatasetBert(data.Dataset):
     #     text = re.sub(r'[.,?\"\'\']', '', text)
     #     return text.strip()
     def preprocess_text(self, text):
-
+        # 定义标点符号
         punctuation = r"[!#$%&'()*+,-./:;<=>?@[\]^_`{|}~]"
         # 使用re.sub替换上述定义的标点符号为空字符，即删除这些符号
-        cleaned_sentence = re.sub(punctuation, '', text)
+        cleaned_sentence = re.sub(punctuation, '', text.lower())
         cleaned_text=cleaned_sentence.split(" ")
         return cleaned_text
 
@@ -422,27 +422,169 @@ def validate(val_loader):
     print("input_local_rep size",np.size(input_local_rep))
     print("input_local_adj size",np.size(input_local_adj))
     print("input_text size",np.size(input_text))
-    # print("input_text:",type(input_text))
-    # bert version
-    # d = utils.shard_dis_GaLR_Bert(input_visual, input_local_rep, input_local_adj,\
-    #     input_text, model, lengths=input_text_lengeth)
 
 
-    # (r1i, r5i, r10i, medri, meanri), _ = utils.acc_i2t2(d)
-    # print("Image to text: %.1f, %.1f, %.1f, %.1f, %.1f" %
-    #              (r1i, r5i, r10i, medri, meanri))
-    # (r1t, r5t, r10t, medrt, meanrt), _ = utils.acc_t2i2(d)
-    # print("Text to image: %.1f, %.1f, %.1f, %.1f, %.1f" %
-    #              (r1t, r5t, r10t, medrt, meanrt))
-    # currscore = (r1t + r5t + r10t + r1i + r5i + r10i)/6.0
+# ====================================================================================================================================================
+# ====================================================================================================================================================
+# 加入名词进入原本的dataloader
 
-    # all_score = "r1i:{} r5i:{} r10i:{} medri:{} meanri:{}\n r1t:{} r5t:{} r10t:{} medrt:{} meanrt:{}\n sum:{}\n ------\n".format(
-    #     r1i, r5i, r10i, medri, meanri, r1t, r5t, r10t, medrt, meanrt, currscore
-    # )
-    # print(all_score)
+class PrecompDatasetNouns(data.Dataset):
+    """
+    Load precomputed captions and image features
+    """
 
-    # return currscore, all_score
+    def __init__(self, data_split, vocab, opt):
+        self.vocab = vocab
+        self.loc = opt['dataset']['data_path']
+        self.img_path = opt['dataset']['image_path']
 
+        # Captions
+        self.captions = []
+        self.maxlength = 0
+
+        # local features
+        local_features = utils.load_from_npy(opt['dataset']['local_path'])[()]
+
+        if data_split != 'test':
+            with open(self.loc+'%s_caps_verify.txt' % data_split, 'rb') as f:
+                for line in f:
+                    self.captions.append(line.strip())
+
+            self.images = []
+            self.local_adj = []
+            self.local_rep = []
+            with open(self.loc + '%s_filename_verify.txt' % data_split, 'rb') as f:
+                for line in f:
+                    # local append
+                    filename = str(line.strip())[2:-1].split(".")[0] + ".txt"
+                    self.local_adj.append(np.array(local_features['adj_matrix'][filename]))
+                    self.local_rep.append(np.array(local_features['local_rep'][filename]))
+
+                    self.images.append(line.strip())
+        else:
+            with open(self.loc + '%s_caps.txt' % data_split, 'rb') as f:
+                for line in f:
+                    self.captions.append(line.strip())
+
+            self.images = []
+            self.local_adj = []
+            self.local_rep = []
+            with open(self.loc + '%s_filename.txt' % data_split, 'rb') as f:
+                for line in f:
+                    # local append
+                    filename = str(line.strip())[2:-1].split(".")[0] + ".txt"
+                    self.local_adj.append(np.array(local_features['adj_matrix'][filename]))
+                    self.local_rep.append(np.array(local_features['local_rep'][filename]))
+
+                    self.images.append(line.strip())
+
+        self.length = len(self.captions)
+        # rkiros data has redundancy in images, we divide by 5, 10crop doesn't
+        if len(self.images) != self.length:
+            self.im_div = 5
+        else:
+            self.im_div = 1
+
+        if data_split == "train":
+            self.transform = transforms.Compose([
+                transforms.Resize((278, 278)),
+                transforms.RandomRotation(degrees=(0, 90)),
+                transforms.RandomCrop(256),
+                transforms.ToTensor(),
+                transforms.Normalize((0.485, 0.456, 0.406),
+                                     (0.229, 0.224, 0.225))])
+        else:
+            self.transform = transforms.Compose([
+                transforms.Resize((256, 256)),
+                transforms.ToTensor(),
+                transforms.Normalize((0.485, 0.456, 0.406),
+                                     (0.229, 0.224, 0.225))])
+
+    def __getitem__(self, index):
+        # handle the image redundancy
+        img_id = index//self.im_div
+        caption = self.captions[index]
+
+        vocab = self.vocab
+
+        # Convert caption (string) to word ids.
+        tokens = nltk.tokenize.word_tokenize(
+            caption.lower().decode('utf-8'))
+        punctuations = [',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$', '%']
+        tokens = [k for k in tokens if k not in punctuations]
+        tokens_UNK = [k if k in vocab.word2idx.keys() else '<unk>' for k in tokens]
+
+
+        caption = []
+        caption.extend([vocab(token) for token in tokens_UNK])
+        caption = torch.LongTensor(caption)
+
+        image = Image.open(self.img_path  +str(self.images[img_id])[2:-1]).convert('RGB')
+        image = self.transform(image)  # torch.Size([3, 256, 256])
+
+        # local
+        local_rep =  torch.from_numpy(self.local_rep[img_id]).type(torch.float32)
+        local_adj = torch.from_numpy(self.local_adj[img_id]).type(torch.float32)
+
+
+        return image, local_rep, local_adj, caption, tokens_UNK, index, img_id
+
+    def __len__(self):
+        return self.length
+
+
+def collate_fn_Nouns(data):
+
+    # Sort a data list by caption length
+    data.sort(key=lambda x: len(x[4]), reverse=True)
+    images, local_rep, local_adj, captions, tokens, ids, img_ids = zip(*data)
+
+    # Merge images (convert tuple of 3D tensor to 4D tensor)
+    images = torch.stack(images, 0)
+
+    local_rep = torch.stack(local_rep, 0)
+    local_adj = torch.stack(local_adj, 0) # @@
+
+    # Merget captions (convert tuple of 1D tensor to 2D tensor)
+    lengths = [len(cap) for cap in captions]
+    targets = torch.zeros(len(captions), max(lengths)).long()
+    for i, cap in enumerate(captions):
+        end = lengths[i]
+        targets[i, :end] = cap[:end]
+
+    lengths = [l if l !=0 else 1 for l in lengths]
+
+    return images, local_rep, local_adj, targets, lengths, ids
+
+
+def get_precomp_loader_Nouns(data_split, vocab, batch_size=100,
+                       shuffle=True, num_workers=0, opt={}):
+    """Returns torch.utils.data.DataLoader for custom coco dataset."""
+    dset = PrecompDataset(data_split, vocab, opt)
+
+    data_loader = torch.utils.data.DataLoader(dataset=dset,
+                                              batch_size=batch_size,
+                                              shuffle=shuffle,
+                                              pin_memory=False,
+                                              collate_fn=collate_fn,
+                                              num_workers=num_workers)
+    return data_loader
+
+def get_loaders_Nouns(vocab, opt):
+    train_loader = get_precomp_loader( 'train', vocab,
+                                      opt['dataset']['batch_size'], True, opt['dataset']['workers'], opt=opt)
+    val_loader = get_precomp_loader( 'val', vocab,
+                                    opt['dataset']['batch_size_val'], False, opt['dataset']['workers'], opt=opt)
+    return train_loader, val_loader
+
+
+def get_test_loader_Nouns(vocab, opt):
+    test_loader = get_precomp_loader( 'test', vocab,
+                                      opt['dataset']['batch_size_val'], False, opt['dataset']['workers'], opt=opt)
+    return test_loader
+
+# ====================================================================================================================================================
+# ====================================================================================================================================================
 if __name__ == '__main__':
     # Test dataloader
     from my_vocab import deserialize_vocab

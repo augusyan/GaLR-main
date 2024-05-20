@@ -1,8 +1,6 @@
 #encoding:utf-8
 # -----------------------------------------------------------
-# "Remote Sensing Cross-Modal Text-Image Retrieval Based on Global and Local Information"
-# Yuan, Zhiqiang and Zhang, Wenkai and Changyuan Tian and Xuee, Rong and Zhengyuan Zhang and Wang, Hongqi and Fu, Kun and Sun, Xian
-# Writen by YuanZhiqiang, 2021.  Our code is depended on AMFMN
+# 利用原本的enconder+gru形式，额外引入名词抽取作为新的监督
 # ------------------------------------------------------------
 
 import time

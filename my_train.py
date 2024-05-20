@@ -18,13 +18,16 @@ import click
 import utils
 import my_data
 import engine,my_engine,my_engine_bert
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 from my_vocab import deserialize_vocab
 
 def parser_options():
     # Hyper Parameters setting
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path_opt', default='option/SYDNEY_GaLR.yaml', type=str,
+    # change the default value of some arguments
+    parser.add_argument('--path_opt', default='option/RSITMD_mca/RSITMD_GaLR_my.yaml', type=str,
                         help='path to a yaml options file')
     # parser.add_argument('--text_sim_path', default='data/ucm_precomp/train_caps.npy', type=str,help='path to t2t sim matrix')
     opt = parser.parse_args()
@@ -68,6 +71,19 @@ def main(options):
                            cuda=True, 
                            data_parallel=False)
 
+    for name, param in model.named_parameters():
+        print(f"Layer: {name} | Requires Grad: {param.requires_grad}| Size: {param.size()}")
+        
+    # freeze bert encoder but not the task-related fc layer     
+    for param in model.bert.bert.encoder.parameters():
+        param.requires_grad = False
+        # param.requires_grad = False
+        
+    # make sure  bert encoder freeze success
+    for name, param in model.named_parameters():
+        print(f"- Layer: {name} | Requires Grad: {param.requires_grad}")
+    # raise NotImplementedError
+    
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
                                  lr=options['optim']['lr'])
 

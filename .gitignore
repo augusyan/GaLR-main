@@ -13,6 +13,7 @@ echo_logs/
 seq2vec/
 vocab/
 checkpoint_MultiGrained/
+checkpoint_MultiGrained_demo/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
