@@ -74,17 +74,16 @@ def main(options):
     for name, param in model.named_parameters():
         print(f"Layer: {name} | Requires Grad: {param.requires_grad}| Size: {param.size()}")
         
-    # freeze bert encoder but not the task-related fc layer     
-    for param in model.bert.bert.encoder.parameters():
-        param.requires_grad = False
-        # param.requires_grad = False
+    # @@ freeze bert encoder but not the task-related fc layer, aborted/replace with no_grad     
+    # for param in model.bert.bert.encoder.parameters():
+    #     param.requires_grad = False
         
     # make sure  bert encoder freeze success
     for name, param in model.named_parameters():
         print(f"- Layer: {name} | Requires Grad: {param.requires_grad}")
     # raise NotImplementedError
     
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
+    optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()),
                                  lr=options['optim']['lr'])
 
     print('Model has {} parameters'.format(utils.params_count(model)))

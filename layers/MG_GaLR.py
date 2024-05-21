@@ -170,7 +170,7 @@ class MG_GaLR(nn.Module):
         #         vocab= vocab_words,
         #         opt = opt
         #     )
-        self.bert = Text_token_Embedding_Module(opt = opt)
+        self.text_encoder = Text_token_Embedding_Module(opt = opt)
         
         # fusion
         self.fusion = Fusion_MIDF(opt = opt)
@@ -201,7 +201,7 @@ class MG_GaLR(nn.Module):
         # golbal_v_feat, local_v_feat = self.defusion(global_feature, local_feature)
 
         # @@@ text features    
-        text_feature= self.bert(input_ids, token_type_ids=token_type_ids,
+        text_feature= self.text_encoder(input_ids, token_type_ids=token_type_ids,
                                         attention_mask=attention_mask)    
         # text_feature = self.text_feature(text)
         # local_t_feat = self.text_feature(text)

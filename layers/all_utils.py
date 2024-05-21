@@ -356,6 +356,23 @@ def cosine_sim(im, s):
     w12 = im.mm(s.t())
     return w12
 
+# ====================================================================
+# About my metrices
+def dot_product(image_features, text_features):
+    return torch.matmul(image_features, text_features.T)
+
+
+def kl_divergence(image_features, text_features):
+    return F.kl_div(F.log_softmax(image_features, dim=1), F.softmax(text_features, dim=1), reduction='batchmean')
+
+def cosine_sim_bert(im, s):
+    """Cosine similarity between all the image and sentence pairs
+    """
+    im = l2norm(im, dim=-1)
+    s = l2norm(s, dim=-1)
+    w12 = im.mm(s.t())
+    return w12
+
 
 # ====================================================================
 # About GCN
@@ -430,11 +447,14 @@ class Text_token_Embedding_Module(nn.Module):
         # print("token_type_ids", type(token_type_ids))
         # print("attention_mask", type(attention_mask))
         # self.bert.eval() # freeze bert 暂时取消看看是否会引起nan的问题
+        with torch.no_grad():
+            x_t_vec = self.bert(input_ids, token_type_ids=token_type_ids,
+                                            attention_mask=attention_mask)# ,output_all_encoded_layers=False
         
-        x_t_vec = self.bert(input_ids, token_type_ids=token_type_ids,
-                                        attention_mask=attention_mask)# ,output_all_encoded_layers=False
         cls_t_vec = x_t_vec['pooler_output']        
-        
+        # if self.dropout >= 0:
+        #     out = F.dropout(cls_t_vec, self.dropout)
+        # out = self.to_out(out)
         out = F.relu(self.to_out(cls_t_vec))
         if self.dropout >= 0:
             out = F.dropout(out, self.dropout)

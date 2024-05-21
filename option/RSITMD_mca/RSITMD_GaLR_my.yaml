@@ -32,7 +32,7 @@ model:
         bert_dir: '../plm/bert-base-uncased'
         sentence_bert_dir: '../plm/all-mpnet-base-v2'
         max_length: 47
-        dropout_fc: 0.5
+        dropout_fc: 0.3
 dataset:
     datatype: rsitmd
     data_split:
@@ -45,7 +45,7 @@ dataset:
     workers: 1
 optim:
     epochs: 20
-    lr: 0.0004
+    lr: 0.00002
     lr_text: 0.00005
     lr_decay_param: 0.7
     lr_update_epoch: 20
