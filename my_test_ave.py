@@ -14,7 +14,7 @@ import logging
 
 import utils
 import my_data
-import engine,my_engine,my_engine_bert
+import engine,my_engine,my_engine_bert,my_engine_sent_bert
 
 from my_vocab import deserialize_vocab
 import mytools
@@ -57,6 +57,10 @@ def main(options):
         from layers import MG_GaLR as models
         test_loader = my_data.get_test_loader_bert(vocab, options)
         purge_engine = my_engine_bert
+    elif options['model']['name'] == "MG_GaLR_sentbert":
+        from layers import MG_GaLR as models
+        test_loader = my_data.get_loaders_sentbert(vocab, options)
+        purge_engine = my_engine_sent_bert
     else:
         raise NotImplementedError
     

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import math
 from layers import seq2vec
 # from layers import model_bert
-from transformers import BertModel, BertConfig
+from transformers import BertModel, BertConfig,AutoModel
 from layers import model_sentence_transformer
 from torch.autograd import Variable
 
@@ -462,7 +462,33 @@ class Text_token_Embedding_Module(nn.Module):
         return out
 
 
+class SentBert_Embedding_Module(nn.Module):
+    def __init__(self, opt):
+        super(SentBert_Embedding_Module, self).__init__()
+        self.opt = opt
+        print(opt)
+        # self.bert_config = BertConfig.from_pretrained(opt['bert']['bert_dir'])
+        self.bert= AutoModel.from_pretrained(opt['bert']['sentence_bert_dir'])
 
+        self.to_out = nn.Linear(in_features=opt['bert']['config_len'], out_features=self.opt['embed']['embed_dim'])
+        self.dropout = opt['bert']['dropout_fc']
+
+    def forward(self, sent_embs):
+        # print("input_ids", type(input_ids))
+        # print("token_type_ids", type(token_type_ids))
+        # print("attention_mask", type(attention_mask))
+        # self.bert.eval() # freeze bert 暂时取消看看是否会引起nan的问题
+        with torch.no_grad():
+            x_t_vec = sent_embs
+    
+        # if self.dropout >= 0:
+        #     out = F.dropout(cls_t_vec, self.dropout)
+        # out = self.to_out(out)
+        out = F.relu(self.to_out(x_t_vec))
+        if self.dropout >= 0:
+            out = F.dropout(out, self.dropout)
+
+        return out
 
 
 

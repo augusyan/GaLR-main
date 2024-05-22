@@ -45,7 +45,7 @@ dataset:
     workers: 1
 optim:
     epochs: 20
-    lr: 0.00002
+    lr: 0.0002
     lr_text: 0.00005
     lr_decay_param: 0.7
     lr_update_epoch: 20
@@ -59,6 +59,6 @@ logs:
     ckpt_save_path: "checkpoint_MultiGrained/"
     logger_name: 'logs/'
 k_fold:
-    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo4'
+    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo2_2'
     nums: 3
     current_num: 0

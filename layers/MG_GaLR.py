@@ -7,7 +7,8 @@ from torch.autograd import Variable
 from torch.nn.utils.clip_grad import clip_grad_norm
 import numpy as np
 from collections import OrderedDict
-from .all_utils import SA, SGA,VSA_Module, ExtractFeature, GCN, Skipthoughts_Embedding_Module, cosine_sim,Text_Sent_Embedding_Module,Text_token_Embedding_Module
+from .all_utils import SA, SGA,VSA_Module, ExtractFeature, GCN, dot_product, Skipthoughts_Embedding_Module, cosine_sim,Text_Sent_Embedding_Module,\
+Text_token_Embedding_Module,SentBert_Embedding_Module
 import torch.nn.functional as F
 
 import copy
@@ -177,8 +178,8 @@ class MG_GaLR(nn.Module):
         # self.defusion = Defusion_MIDF(opt = opt)
 
         # weight
-        self.gw = opt['global_local_weight']['global']
-        self.lw = opt['global_local_weight']['local']
+        # self.gw = opt['global_local_weight']['global']
+        # self.lw = opt['global_local_weight']['local']
 
         self.Eiters = 0
 
@@ -207,6 +208,8 @@ class MG_GaLR(nn.Module):
         # local_t_feat = self.text_feature(text)
         # golbal_t_feat = self.text_feature(text)
 
+        # @@@ similarity
+        # sims_merged = dot_product(visual_feature, text_feature)
         sims_merged = cosine_sim(visual_feature, text_feature)
         
         # sims_local = cosine_sim(local_v_feat, local_t_feat)
@@ -216,10 +219,78 @@ class MG_GaLR(nn.Module):
         
         return sims
 
+class MG_GaLR_sentbert(nn.Module):
+    def __init__(self, opt={}, vocab_words=[]):
+        super(MG_GaLR_sentbert, self).__init__()
+
+        # img feature
+        self.extract_feature = ExtractFeature(opt = opt)
+        self.drop_g_v = nn.Dropout(0.3)
+
+        # vsa feature
+        self.mvsa =VSA_Module(opt = opt)
+
+        # local feature
+        self.local_feature = GCN()
+        self.drop_l_v = nn.Dropout(0.3)
+
+        # text feature
+        self.text_encoder = SentBert_Embedding_Module(opt = opt)
+        
+        # fusion
+        self.fusion = Fusion_MIDF(opt = opt)
+        # self.defusion = Defusion_MIDF(opt = opt)
+
+        self.Eiters = 0
+
+    # input_visual, input_local_rep, input_local_adj, input_text,  sent_embs, lengths
+    def forward(self, img, input_local_rep, input_local_adj, text, sent_embs ,text_lens=None):
+
+        # extract features, from different layers of ResNet
+        lower_feature, higher_feature, solo_feature = self.extract_feature(img)
+
+        # mvsa featrues, to gain masked remote sensing feature from mvsa mechnism
+        global_feature = self.mvsa(lower_feature, higher_feature, solo_feature)
+        # global_feature = solo_feature
+
+        # extract local feature
+        local_feature = self.local_feature(input_local_adj, input_local_rep)
+        
+        # dynamic fusion @@@
+        visual_feature = self.fusion(global_feature, local_feature)
+        
+        # golbal_v_feat, local_v_feat = self.defusion(global_feature, local_feature)
+
+        # @@@ text features    
+        text_feature= self.text_encoder(sent_embs)    
+        # text_feature = self.text_feature(text)
+        # local_t_feat = self.text_feature(text)
+        # golbal_t_feat = self.text_feature(text)
+
+        # @@@ similarity
+        sims_merged = dot_product(visual_feature, text_feature)
+        # sims_merged = cosine_sim(visual_feature, text_feature)
+        
+        # sims_local = cosine_sim(local_v_feat, local_t_feat)
+        # sims_global = cosine_sim(golbal_v_feat, golbal_t_feat)
+        sims = sims_merged
+        # sims = sims_merged + sims_local + sims_global
+        
+        return sims
+
+
+
 def myfactory(opt, vocab_words, cuda=True, data_parallel=True):
     opt = copy.copy(opt)
 
-    model = MG_GaLR(opt, vocab_words)
+    # @@ add alternative text encoder
+    # model = MG_GaLR(opt, vocab_words)
+    if opt['name']=='MG_GaLR_sentbert':
+        model = MG_GaLR_sentbert(opt, vocab_words)
+    elif opt['name']=='MG_GaLR':
+        model = MG_GaLR(opt, vocab_words)
+    else:
+        raise ValueError('Invalid model name')
 
     if data_parallel:
         model = nn.DataParallel(model).cuda()
@@ -230,3 +301,5 @@ def myfactory(opt, vocab_words, cuda=True, data_parallel=True):
         model.cuda()
 
     return model
+
+

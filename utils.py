@@ -356,17 +356,21 @@ def shard_dis_reg(images, captions, model, shard_size=128, lengths=None):
     sys.stdout.write('\n')
     return d
 
-
 def shard_dis_GaLR(images, input_local_rep, input_local_adj, captions, model, shard_size=128, lengths=None):
     """compute image-caption pairwise distance during validation and test"""
 
     n_im_shard = (len(images) - 1) // shard_size + 1
     n_cap_shard = (len(captions) - 1) // shard_size + 1
 
-    d = np.zeros((len(images), len(captions)))
+    d = np.zeros((len(images), len(captions))) # score matrix
 
     all = []
-
+    # @@ for test
+    #  d:(452, 2260) n_im_shard:4 n_cap_shard:18
+    
+    print(f"all shapes utils:\n d:{d.shape} n_im_shard:{n_im_shard} n_cap_shard:{n_cap_shard}")
+    print(f"all shapes utils type :\n d:{type(d)}")
+    
     for i in range(n_im_shard):
         im_start, im_end = shard_size*i, min(shard_size*(i+1), len(images))
 
@@ -397,6 +401,19 @@ def shard_dis_GaLR(images, input_local_rep, input_local_adj, captions, model, sh
             sim = model(im, local_rep, local_adj, s, l)
             t2 = time.time()
             all.append(t2-t1)
+            # sim:<class 'torch.Tensor'> sim:torch.Size([128, 128])
+            # sim.data.cpu().numpy():<class 'numpy.ndarray'> sim:(128, 128)
+            """a piece of  sim.data :
+            [[-0.0066296  -0.00427614 -0.04136446 -0.00036203 -0.02456319]
+            [ 0.04639398  0.05223051  0.01300559  0.05274548 -0.01010514]
+            [ 0.05061461  0.04705416  0.00953493  0.05804242  0.01446959]
+            [ 0.03841243  0.03201586 -0.0086829   0.04708235  0.00733969]
+            [ 0.02666652  0.03443651 -0.02278918  0.02741908 -0.00504976]]
+            """
+            
+            print(f"utils sim :\n sim:{type(sim)} sim:{sim.size()}")
+            print(f"utils sim.data :\n sim:{type(sim.data.cpu().numpy())} sim:{sim.data.cpu().numpy().shape}")
+            print(f"a piece of  sim.data :\n {sim.data.cpu().numpy()[:5,:5]}")
 
             sim = sim.squeeze()
             d[im_start:im_end, cap_start:cap_end] = sim.data.cpu().numpy()
@@ -405,9 +422,12 @@ def shard_dis_GaLR(images, input_local_rep, input_local_adj, captions, model, sh
     return d
 
 
-# @@ bert embedding for caption
-def shard_dis_GaLR_Bert(images, input_local_rep, input_local_adj, captions, model, input_ids, token_type_ids, attention_mask, shard_size=128, lengths=None):
-    """compute image-caption pairwise distance during validation and test in bert embedding"""
+# ======================================================================================================================================================
+# ======================================================================================================================================================
+# My model
+
+def shard_dis_GaLR_Sent_Bert(images, input_local_rep, input_local_adj, captions, model,sent_embs_list, shard_size=128, lengths=None):
+    """compute image-caption pairwise distance during validation and test"""
 
     n_im_shard = (len(images) - 1) // shard_size + 1
     n_cap_shard = (len(captions) - 1) // shard_size + 1
@@ -430,19 +450,76 @@ def shard_dis_GaLR_Bert(images, input_local_rep, input_local_adj, captions, mode
 
             # update for higher version torch
             with torch.no_grad():
+                im = Variable(torch.from_numpy(images[im_start:im_end])).float().cuda()
+                local_rep = Variable(torch.from_numpy(input_local_rep[im_start:im_end])).float().cuda()
+                local_adj = Variable(torch.from_numpy(input_local_adj[im_start:im_end])).float().cuda()
+                s = Variable(torch.from_numpy(captions[cap_start:cap_end])).cuda()
+                semb = Variable(torch.from_numpy(sent_embs_list[cap_start:cap_end])).cuda()
+
+            l = lengths[cap_start:cap_end]
+
+            t1 = time.time()
+            # input_visual, input_local_rep, input_local_adj, input_text,  sent_embs, lengths
+            sim = model(im, local_rep, local_adj, s,semb, l)
+            t2 = time.time()
+            all.append(t2-t1)
+
+            sim = sim.squeeze()
+            d[im_start:im_end, cap_start:cap_end] = sim.data.cpu().numpy()
+    sys.stdout.write('\n')
+    print("infer time:",np.average(all))
+    return d
+
+# @@ bert embedding for caption
+def shard_dis_GaLR_Bert(images, input_local_rep, input_local_adj, captions, model, input_ids, token_type_ids, attention_mask, shard_size=128, lengths=None):
+    """compute image-caption pairwise distance during validation and test in bert embedding"""
+
+    n_im_shard = (len(images) - 1) // shard_size + 1
+    n_cap_shard = (len(captions) - 1) // shard_size + 1
+
+    d = np.zeros((len(images), len(captions)))
+
+    all = []
+    #  d:(452, 2260) input_ids:torch.Size([157200, 47]) n_im_shard:4 n_cap_shard:18 
+    # all shapes utils type : d:<class 'numpy.ndarray'> input_ids:<class 'torch.Tensor'> token_type_ids:<class 'torch.Tensor'> attention_mask:<class 'torch.Tensor'>
+    # print(f"all shapes utils:\n d:{d.shape} input_ids:{input_ids.shape} n_im_shard:{n_im_shard} n_cap_shard:{n_cap_shard}")
+    # print(f"all shapes utils type :\n d:{type(d)} input_ids:{type(input_ids)} token_type_ids:{type(token_type_ids)} attention_mask:{type(attention_mask)}")
+    
+    for i in range(n_im_shard):
+        im_start, im_end = shard_size*i, min(shard_size*(i+1), len(images))
+
+        print("======================")
+        print("im_start:",im_start)
+        print("im_end:",im_end)
+
+        for j in range(n_cap_shard):
+
+            sys.stdout.write('\r>> shard_distance batch (%d,%d)' % (i,j))
+            cap_start, cap_end = shard_size * j, min(shard_size * (j + 1), len(captions))
+
+            # update for higher version torch
+            with torch.no_grad():
                 # print("@@ utils \n{}\n{}\n{}".format(type(images),type(captions),type(input_ids)))
                 # print("@@ utils \n{}\n{}\n{}".format(np.size(images),np.size(captions),input_ids.size()))
+
                 im = Variable(torch.from_numpy(images[im_start:im_end])).float().cuda()
                 local_rep = Variable(torch.from_numpy(input_local_rep[im_start:im_end])).float().cuda()
                 local_adj = Variable(torch.from_numpy(input_local_adj[im_start:im_end])).float().cuda()
                 s = Variable(torch.from_numpy(captions[cap_start:cap_end])).cuda()
                 
-                iidx = input_ids[cap_start:cap_end].cuda()
-                ttids = token_type_ids[cap_start:cap_end].cuda()
-                amask = attention_mask[cap_start:cap_end].cuda()
+                iidx = Variable(torch.from_numpy(input_ids[cap_start:cap_end])).cuda()
+                ttids = Variable(torch.from_numpy(token_type_ids[cap_start:cap_end])).cuda()
+                amask = Variable(torch.from_numpy(attention_mask[cap_start:cap_end])).cuda()
                 
-                # print("@@@ utils \n{}\n{}\n{}".format(type(im),type(s),type(iidx)))
-                # print("@@@ utils \n{}\n{}\n{}".format(im.size(),s.size(),iidx.size()))
+            # iidx:<class 'torch.Tensor'> iidx:torch.Size([128, 47])
+            # iidx:<class 'torch.Tensor'> iidx:torch.Size([128, 768, 47])  im:<class 'torch.Tensor'> iidx:torch.Size([128, 3, 256, 256])  captions:<class 'torch.Tensor'> iidx:torch.Size([128, 47])
+            
+            # print(f"all utils:\n iidx:{type(iidx)} iidx:{iidx.shape}")
+            # print(f"all utils:\n im:{type(im)} iidx:{im.shape}")
+            # print(f"all utils:\n captions:{type(s)} iidx:{s.shape}")
+                
+            # print("@@@ utils \n{}\n{}\n{}".format(type(im),type(s),type(iidx)))
+            # print("@@@ utils \n{}\n{}\n{}".format(im.size(),s.size(),iidx.size()))
                 
                 
             # im = Variable(torch.from_numpy(images[im_start:im_end]), volatile=True).float().cuda()
@@ -453,12 +530,26 @@ def shard_dis_GaLR_Bert(images, input_local_rep, input_local_adj, captions, mode
             l = lengths[cap_start:cap_end]
 
             t1 = time.time()
-            sim = model(im, local_rep, local_adj, s,iidx,ttids,amask, l)
+            sim = model(im, local_rep, local_adj, s, iidx,ttids,amask, l)
             t2 = time.time()
             all.append(t2-t1)
+            # sim:<class 'torch.Tensor'> sim:torch.Size([128, 128])
+            # sim.data.cpu().numpy():<class 'numpy.ndarray'> sim:(128, 128)
+            """a piece of  sim.data :
+             [[ 0.68847895 -0.23251936 -0.75733054 -0.5951389  -0.72028965]
+            [ 0.6842005   0.07729551 -0.86723685 -0.37875015 -0.3028088 ]
+            [ 0.39638546 -0.08011446 -0.5635441  -0.4696055  -0.62302715]
+            [-0.24134123  0.01998806 -0.11424804 -0.20329574  0.3711012 ]
+            [-0.16456978 -0.03087491 -0.9853229  -0.5842093   0.21048312]]
 
+            """
+            
+            # print(f"utils sim :\n sim:{type(sim)} sim:{sim.size()}")
+            # print(f"utils sim.data :\n sim:{type(sim.data.cpu().numpy())} sim:{sim.data.cpu().numpy().shape}")
+            # print(f"a piece of  sim.data :\n {sim.data.cpu().numpy()[:5,:5]}")
             sim = sim.squeeze()
             d[im_start:im_end, cap_start:cap_end] = sim.data.cpu().numpy()
+
     sys.stdout.write('\n')
     print("infer time:",np.average(all))
     return d

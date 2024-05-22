@@ -181,41 +181,36 @@ def validate(val_loader, model):
     input_local_rep = np.zeros((len(val_loader.dataset), 20, 20))
     input_local_adj = np.zeros((len(val_loader.dataset), 20, 20))
 
+    # @@ bert list
+    input_ids_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    token_type_ids_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    attention_mask_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    
     input_text = np.zeros((len(val_loader.dataset), 47), dtype=np.int64) # fix len 47 for nltk
     input_text_lengeth = [0]*len(val_loader.dataset)
     
     # @@ bert list
-    input_ids_list = []
-    token_type_ids_list = []
-    attention_mask_list = []
+
     for i, val_data in enumerate(val_loader):
 
         images, local_rep, local_adj, captions, lengths, ids, \
             input_ids, token_type_ids, attention_mask= val_data
-        
-        input_ids_list.append(input_ids)
-        token_type_ids_list.append(token_type_ids)
-        attention_mask_list.append(attention_mask)
-        
+               
         # 
-        for (id, img,rep,adj, cap, l , iids, ttids, amask) in \
-            zip(ids, (images.numpy().copy()),(local_rep.numpy().copy()),\
-                (local_adj.numpy().copy()), (captions.numpy().copy()), lengths,\
-                    input_ids.numpy().copy(), token_type_ids.numpy().copy(), attention_mask.numpy().copy()):
+        for (id, img,rep,adj, cap,iidx,itype,iatt, l) in zip(ids, \
+            (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), (input_ids.numpy().copy()),\
+                (token_type_ids.numpy().copy()), (attention_mask.numpy().copy()), lengths):
             input_visual[id] = img
             input_local_rep[id] = rep
             input_local_adj[id] = adj
+            
+            input_ids_list[id, :] = iidx
+            token_type_ids_list[id, :] = itype
+            attention_mask_list[id, :] = iatt
 
             input_text[id, :captions.size(1)] = cap
             input_text_lengeth[id] = l
             
-    
-    # print("@@ mye_engine \n{}\n{}\n{}".format(np.size(input_text),np.size(input_visual),input_ids.size()))
-   
-    # raise NotImplementedError
-    input_ids_list=torch.cat(input_ids_list, dim=0)
-    token_type_ids_list=torch.cat(token_type_ids_list, dim=0)
-    attention_mask_list=torch.cat(attention_mask_list, dim=0)
     
     input_visual = np.array([input_visual[i] for i in range(0, len(input_visual), 5)])
     input_local_rep = np.array([input_local_rep[i] for i in range(0, len(input_local_rep), 5)])
@@ -261,49 +256,77 @@ def validate_test(val_loader, model):
     model.logger = val_logger
 
     start = time.time()
+    # @@ for test
+        
     input_visual = np.zeros((len(val_loader.dataset), 3, 256, 256))
     input_local_rep = np.zeros((len(val_loader.dataset), 20, 20))
     input_local_adj = np.zeros((len(val_loader.dataset), 20, 20))
 
     input_text = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
     input_text_lengeth = [0] * len(val_loader.dataset)
+    
+    # @@ bert list
+    input_ids_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    token_type_ids_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    attention_mask_list = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+
+
+    # input_visual:(2260, 3, 256, 256) input_text:(2260, 47) input_local_adj:(2260, 20, 20)
+    # print(f"all shapes v1:\n input_visual:{input_visual.shape} input_text:{input_text.shape} input_local_adj:{input_local_adj.shape}")
 
     embed_start = time.time()
     
     # @@ bert list
-    input_ids_list = []
-    token_type_ids_list = []
-    attention_mask_list = []
+    # input_ids_list = []
+    # token_type_ids_list = []
+    # attention_mask_list = []
     
     for i, val_data in enumerate(val_loader):
 
         images,local_rep, local_adj, captions, lengths, ids, \
             input_ids, token_type_ids, attention_mask= val_data
 
-        for (id, img,rep,adj, cap, l) in zip(ids, \
-            (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), lengths):
+        #  input_ids:torch.Size([70, 47]) images:torch.Size([70, 3, 256, 256]) captions:torch.Size([70, 21])
+        # print(f"all shapes v11:\n input_ids:{input_ids.shape} images:{images.shape} captions:{captions.shape}")
+
+        for (id, img,rep,adj, cap,iidx,itype,iatt, l) in zip(ids, \
+            (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), (input_ids.numpy().copy()),\
+                (token_type_ids.numpy().copy()), (attention_mask.numpy().copy()), lengths):
             input_visual[id] = img
             input_local_rep[id] = rep
             input_local_adj[id] = adj
                 
-            input_ids_list.append(input_ids)
-            token_type_ids_list.append(token_type_ids)
-            attention_mask_list.append(attention_mask)
+            # input_ids_list.append(input_ids)
+            # token_type_ids_list.append(token_type_ids)
+            # attention_mask_list.append(attention_mask)
+            input_ids_list[id, :] = iidx
+            token_type_ids_list[id, :] = itype
+            attention_mask_list[id, :] = iatt
 
             input_text[id, :captions.size(1)] = cap
+
             input_text_lengeth[id] = l
 
     # raise NotImplementedError
-    input_ids_list=torch.cat(input_ids_list, dim=0)
-    token_type_ids_list=torch.cat(token_type_ids_list, dim=0)
-    attention_mask_list=torch.cat(attention_mask_list, dim=0)
+    # print(f"all shapes v22:\n input_ids_list:{len(input_ids_list)}")
+
+    # input_ids_list=torch.cat(input_ids_list, dim=0).view(len(val_loader.dataset),input_ids.size(1),-1)
+    # token_type_ids_list=torch.cat(token_type_ids_list, dim=0).view(len(val_loader.dataset),input_ids.size(1),-1)
+    # attention_mask_list=torch.cat(attention_mask_list, dim=0).view(len(val_loader.dataset),input_ids.size(1),-1)
+    # token_type_ids_list=torch.cat(token_type_ids_list, dim=0)
+    # attention_mask_list=torch.cat(attention_mask_list, dim=0)
     
+    #  input_ids_list:torch.Size([157200, 47]) input_text:<class 'torch.Tensor'>
+    # print(f"all shapes v2:\n input_ids_list:{input_ids_list.shape} input_text:{type(input_ids_list)}")
+
+   
     input_visual = np.array([input_visual[i] for i in range(0, len(input_visual), 5)])
     input_local_rep = np.array([input_local_rep[i] for i in range(0, len(input_local_rep), 5)])
     input_local_adj = np.array([input_local_adj[i] for i in range(0, len(input_local_adj), 5)])
     embed_end = time.time()
     print("embedding time: {}".format(embed_end-embed_start))
-
+    
+    # raise NotImplementedError
     d = utils.shard_dis_GaLR_Bert(input_visual, input_local_rep, input_local_adj, input_text, model,\
         input_ids_list, token_type_ids_list, attention_mask_list,lengths=input_text_lengeth)
 

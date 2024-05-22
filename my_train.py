@@ -17,7 +17,7 @@ import click
 
 import utils
 import my_data
-import engine,my_engine,my_engine_bert
+import engine,my_engine,my_engine_bert,my_engine_sent_bert
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -37,7 +37,8 @@ def parser_options():
         options = yaml.safe_load(handle)
 
     return options
-
+   
+    
 def main(options):
     
      # make ckpt save dir
@@ -62,6 +63,11 @@ def main(options):
         from layers import MG_GaLR as models
         train_loader, val_loader = my_data.get_loaders_bert(vocab, options)
         purge_engine = my_engine_bert
+    elif options['model']['name'] == "MG_GaLR_sentbert":
+        from layers import MG_GaLR as models
+        train_loader, val_loader = my_data.get_loaders_sentbert(vocab, options)
+        purge_engine = my_engine_sent_bert
+
     else:
         raise NotImplementedError
     
