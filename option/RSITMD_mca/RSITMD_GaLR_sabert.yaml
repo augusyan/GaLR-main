@@ -27,13 +27,11 @@ model:
     global_local_weight:
         global: None
         local: None
-    name: MG_GaLR_sentbert
+    name: MG_GaLR_SA
     bert:
         bert_dir: '../plm/bert-base-uncased'
-        sentence_bert_dir: '/data1/ytw/plm/all-mpnet-base-v2'
-        sentence_embedding_train_val: 'data/rsitmd_precomp/train_val_embedding.npy'
-        sentence_embedding_test: 'data/rsitmd_precomp/test_embedding.npy'
-        config_len: 768
+        sentence_bert_dir: '../plm/all-mpnet-base-v2'
+        freeze_bert: True
         max_length: 47
         dropout_fc: 0.3
 dataset:
@@ -47,11 +45,11 @@ dataset:
     batch_size_val: 70
     workers: 1
 optim:
-    epochs: 20
-    lr: 0.00005
+    epochs: 6
+    lr: 0.00002
     lr_text: 0.00005
     lr_decay_param: 0.7
-    lr_update_epoch: 20
+    lr_update_epoch: 40
     grad_clip: 0
     max_violation: 0
     margin: 0.2
@@ -62,6 +60,6 @@ logs:
     ckpt_save_path: "checkpoint_MultiGrained/"
     logger_name: 'logs/'
 k_fold:
-    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo3'
+    experiment_name: 'rsitmd_GaLR_MIDF_MultiGrained_demo5_1'
     nums: 3
     current_num: 0

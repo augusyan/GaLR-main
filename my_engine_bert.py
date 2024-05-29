@@ -77,6 +77,7 @@ def train(train_loader, model, optimizer, epoch, opt={}):
     loss_name = opt['model']['name'] + "_" + opt['dataset']['datatype']
     print_freq = opt['logs']['print_freq']
 
+
     # switch to train mode
     model.train()
     batch_time = utils.AverageMeter()

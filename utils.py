@@ -424,7 +424,7 @@ def shard_dis_GaLR(images, input_local_rep, input_local_adj, captions, model, sh
 
 # ======================================================================================================================================================
 # ======================================================================================================================================================
-# My model
+# My model Sent_Bert as text encoder
 
 def shard_dis_GaLR_Sent_Bert(images, input_local_rep, input_local_adj, captions, model,sent_embs_list, shard_size=128, lengths=None):
     """compute image-caption pairwise distance during validation and test"""
@@ -460,7 +460,7 @@ def shard_dis_GaLR_Sent_Bert(images, input_local_rep, input_local_adj, captions,
 
             t1 = time.time()
             # input_visual, input_local_rep, input_local_adj, input_text,  sent_embs, lengths
-            sim = model(im, local_rep, local_adj, s,semb, l)
+            sim = model(im, local_rep, local_adj, s, semb, l)
             t2 = time.time()
             all.append(t2-t1)
 

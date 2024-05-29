@@ -130,10 +130,66 @@ class BaseModel(nn.Module):
         #sims = cosine_sim(self.lw*self.drop_l_v(local_feature) + self.gw*self.drop_g_v(global_feature), text_feature)
         return sims
 
+class GaLRNous(nn.Module):
+    def __init__(self, opt={}, vocab_words=[]):
+        super(GaLRNous, self).__init__()
+
+        # img feature
+        self.extract_feature = ExtractFeature(opt = opt)
+        self.drop_g_v = nn.Dropout(0.3)
+
+        # vsa feature
+        self.mvsa =VSA_Module(opt = opt)
+
+        # local feature
+        self.local_feature = GCN()
+        self.drop_l_v = nn.Dropout(0.3)
+
+        # text feature
+        self.text_feature = Skipthoughts_Embedding_Module(
+            vocab= vocab_words,
+            opt = opt
+        )
+
+        # fusion
+        self.fusion = Fusion_MIDF(opt = opt)
+
+        # weight
+        self.gw = opt['global_local_weight']['global']
+        self.lw = opt['global_local_weight']['local']
+
+        self.Eiters = 0
+
+    def forward(self, img, input_local_rep, input_local_adj, text, text_lens=None):
+
+        # extract features
+        lower_feature, higher_feature, solo_feature = self.extract_feature(img)
+
+        # mvsa featrues
+        global_feature = self.mvsa(lower_feature, higher_feature, solo_feature)
+#        global_feature = solo_feature
+
+        # extract local feature
+        local_feature = self.local_feature(input_local_adj, input_local_rep)
+        
+        # dynamic fusion
+        visual_feature = self.fusion(global_feature, local_feature)
+
+        # text features
+        text_feature = self.text_feature(text)
+
+        sims = cosine_sim(visual_feature, text_feature)
+        #sims = cosine_sim(self.lw*self.drop_l_v(local_feature) + self.gw*self.drop_g_v(global_feature), text_feature)
+        return sims
+    
+
 def factory(opt, vocab_words, cuda=True, data_parallel=True):
     opt = copy.copy(opt)
-
-    model = BaseModel(opt, vocab_words)
+    if opt['name']=='GaLR':
+        model = BaseModel(opt, vocab_words)
+    elif opt['name']=='GaLRNous':
+        model = GaLRNous(opt, vocab_words)
+        
 
     if data_parallel:
         model = nn.DataParallel(model).cuda()
@@ -146,4 +202,20 @@ def factory(opt, vocab_words, cuda=True, data_parallel=True):
     return model
 
 
+def myfactory(opt, vocab_words, cuda=True, data_parallel=True):
+    opt = copy.copy(opt)
+    if opt['name']=='GaLR':
+        model = BaseModel(opt, vocab_words)
+    elif opt['name']=='GaLRNous':
+        model = GaLRNous(opt, vocab_words)
+        
 
+    if data_parallel:
+        model = nn.DataParallel(model).cuda()
+        if not cuda:
+            raise ValueError
+
+    if cuda:
+        model.cuda()
+
+    return model

@@ -8,6 +8,7 @@ postprocessing/
 detection/
 checkpoint_my_rep/
 checkpoint_my_work/
+checkpoint_*/
 detection/
 echo_logs/
 seq2vec/

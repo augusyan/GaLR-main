@@ -41,7 +41,7 @@ sentences = nltk.sent_tokenize(text)
 
 # 创建一个空列表来存储所有名词
 all_nouns = []
-
+all_nouns_pos=[]
 # 遍历每个句子
 for sentence in sentences:
     # 将句子分割成单词列表
@@ -55,6 +55,7 @@ for sentence in sentences:
     
     # 将名词添加到结果列表中
     all_nouns.extend(nouns)
+    print(notagged_wordsuns)
 
 # 打印结果
 print(all_nouns)

@@ -175,34 +175,36 @@ def validate(val_loader, model):
     input_local_adj = np.zeros((len(val_loader.dataset), 20, 20))
 
     input_text = np.zeros((len(val_loader.dataset), 47), dtype=np.int64) # fix len 47 for nltk
+    sent_embs_list = np.zeros((len(val_loader.dataset), 768), dtype=np.float32) # fix len 768 for sentence transformer
+    
     input_text_lengeth = [0]*len(val_loader.dataset)
     
-    # @@ bert list
-
-    sent_embs_list = []
     for i, val_data in enumerate(val_loader):
 
         images, local_rep, local_adj, captions, lengths, ids, \
             sent_embs= val_data
+        # engine sent_embs:<class 'torch.Tensor'>- torch.Size([25, 768]) torch.float32
+        # print(f"engine sent_embs:{sent_embs.dtype}- {sent_embs.size() } ")
         
-        sent_embs_list.append(sent_embs)
-
-        for (id, img,rep,adj, cap, l) in \
+        for (id, img,rep,adj, cap, ise,l) in \
             zip(ids, (images.numpy().copy()),(local_rep.numpy().copy()),\
-                (local_adj.numpy().copy()), (captions.numpy().copy()), lengths):
+                (local_adj.numpy().copy()), (captions.numpy().copy()), (sent_embs.numpy().copy()) , lengths):
             input_visual[id] = img
             input_local_rep[id] = rep
             input_local_adj[id] = adj
 
-            input_text[id, :captions.size(1)] = cap
-            input_text_lengeth[id] = l
+            # print(f"engine ise:{ise.shape}")
             
+            input_text[id, :captions.size(1)] = cap
+            sent_embs_list[id, :] = ise
+            input_text_lengeth[id] = l
+            # raise NotImplementedError   
     
     # print("@@ mye_engine \n{}\n{}\n{}".format(np.size(input_text),np.size(input_visual),input_ids.size()))
    
     # raise NotImplementedError
     
-    sent_embs_list=torch.cat(sent_embs_list, dim=0)
+    # sent_embs_list=torch.cat(sent_embs_list, dim=0)
     
     input_visual = np.array([input_visual[i] for i in range(0, len(input_visual), 5)])
     input_local_rep = np.array([input_local_rep[i] for i in range(0, len(input_local_rep), 5)])
@@ -248,38 +250,34 @@ def validate_test(val_loader, model):
     model.logger = val_logger
 
     start = time.time()
+    
+    print("start embedding!!!!")
     input_visual = np.zeros((len(val_loader.dataset), 3, 256, 256))
     input_local_rep = np.zeros((len(val_loader.dataset), 20, 20))
     input_local_adj = np.zeros((len(val_loader.dataset), 20, 20))
 
     input_text = np.zeros((len(val_loader.dataset), 47), dtype=np.int64)
+    sent_embs_list = np.zeros((len(val_loader.dataset), 768), dtype=np.float32) # fix len 47 for nltk
     input_text_lengeth = [0] * len(val_loader.dataset)
 
     embed_start = time.time()
-    
-    # @@ bert list
-    sent_embs_list=[]
     
     for i, val_data in enumerate(val_loader):
 
         images,local_rep, local_adj, captions, lengths, ids, \
             sent_embs= val_data
 
-        for (id, img,rep,adj, cap, l) in zip(ids, \
-            (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), lengths):
+        for (id, img,rep,adj, cap,ise, l) in zip(ids, \
+            (images.numpy().copy()),(local_rep.numpy().copy()),(local_adj.numpy().copy()), (captions.numpy().copy()), (sent_embs.numpy().copy()), lengths):
             input_visual[id] = img
             input_local_rep[id] = rep
             input_local_adj[id] = adj
-            attention_mask_list.append(sent_embs)
 
             input_text[id, :captions.size(1)] = cap
+            sent_embs_list[id, :] = ise
             input_text_lengeth[id] = l
 
-    # raise NotImplementedError
-    input_ids_list=torch.cat(input_ids_list, dim=0)
-    token_type_ids_list=torch.cat(token_type_ids_list, dim=0)
-    attention_mask_list=torch.cat(attention_mask_list, dim=0)
-    
+   
     input_visual = np.array([input_visual[i] for i in range(0, len(input_visual), 5)])
     input_local_rep = np.array([input_local_rep[i] for i in range(0, len(input_local_rep), 5)])
     input_local_adj = np.array([input_local_adj[i] for i in range(0, len(input_local_adj), 5)])

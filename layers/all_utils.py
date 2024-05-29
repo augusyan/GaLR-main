@@ -430,6 +430,24 @@ class Text_Sent_Embedding_Module(nn.Module):
 
         return out
 
+
+# bert attention module for bert embedding
+class BertSelfAttentionModel(torch.nn.Module):
+    def __init__(self, hidden_size, num_classes):
+        super(BertSelfAttentionModel, self).__init__()
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.self_attention = torch.nn.MultiheadAttention(hidden_size, num_heads=1)
+        self.fc =  torch.nn.Linear(hidden_size, num_classes)
+
+    def forward(self, input_ids, attention_mask):
+        # 获取BERT的最后一层的隐藏状态
+        last_hidden_state = self.bert(input_ids=input_ids, attention_mask=attention_mask)[0]
+        # 应用自注意力
+        self_attn_output, _ = self.self_attention(last_hidden_state, last_hidden_state, last_hidden_state, attention_mask)
+        # 使用自注意力输出进行分类
+        logits = self.fc(self_attn_output[:, 0, :])
+        return logits
+    
 # @@ merge cls and token level embedding
 class Text_token_Embedding_Module(nn.Module):
     def __init__(self, opt):
@@ -462,32 +480,76 @@ class Text_token_Embedding_Module(nn.Module):
         return out
 
 
+# self attention module for bert embedding
+class TextLevelsEmbeddingModule(nn.Module):
+    def __init__(self, opt):
+        super(TextLevelsEmbeddingModule, self).__init__()
+        self.opt = opt
+        print(opt)
+        self.bert = BertModel.from_pretrained(opt['bert']['bert_dir'])
+        self.self_attention = torch.nn.MultiheadAttention(768, num_heads=1)
+        self.to_out = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
+        self.to_sa = nn.Linear(in_features=768, out_features=self.opt['embed']['embed_dim'])
+        self.dropout = opt['bert']['dropout_fc']
+
+        # # Freeze BERT parameters if needed
+        # if opt['bert']['freeze_bert']:
+        #     for param in self.bert.parameters():
+        #         param.requires_grad = False
+
+    def forward(self, input_ids, token_type_ids, attention_mask):
+        # Use BERT to get embeddings
+        with torch.no_grad():
+            bert_outputs = self.bert(input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
+        
+        x_t_vec = bert_outputs['last_hidden_state']
+        cls_t_vec = bert_outputs['pooler_output']
+        key_padding_mask = ~attention_mask.bool()  # Invert mask for attention
+
+        # print(f"debug key_padding_mask {key_padding_mask.size()}")  # torch.Size([batch_size, seq_length])
+        # print(f"debug cls_t_vec {cls_t_vec.size()}")  # torch.Size([batch_size, 768])
+        # print(f"debug x_t_vec {x_t_vec.size()}")  # torch.Size([batch_size, seq_length, 768])
+
+        # Transpose x_t_vec for self_attention
+        x_t_vec = x_t_vec.transpose(0, 1)  # shape: [seq_length, batch_size, embed_dim]
+        
+        # Self-attention expects input shape [seq_length, batch_size, embed_dim]
+        self_attn_output, _ = self.self_attention(x_t_vec, x_t_vec, x_t_vec, key_padding_mask=key_padding_mask)
+        
+        # Transpose self_attn_output back to [batch_size, seq_length, embed_dim]
+        self_attn_output = self_attn_output.transpose(0, 1)
+
+        # Pooling the outputs to get a single vector (e.g., taking the mean over sequence length)
+        pooled_output = torch.mean(self_attn_output, dim=1)
+
+        out = F.relu(self.to_out(cls_t_vec.squeeze(0)))
+        if self.dropout >= 0:
+            out = F.dropout(out, self.dropout, training=self.training)
+
+        sa_out = F.relu(self.to_sa(pooled_output))
+        if self.dropout >= 0:
+            sa_out = F.dropout(sa_out, self.dropout, training=self.training)
+
+        return out, sa_out
+
 class SentBert_Embedding_Module(nn.Module):
     def __init__(self, opt):
         super(SentBert_Embedding_Module, self).__init__()
         self.opt = opt
         print(opt)
         # self.bert_config = BertConfig.from_pretrained(opt['bert']['bert_dir'])
-        self.bert= AutoModel.from_pretrained(opt['bert']['sentence_bert_dir'])
-
         self.to_out = nn.Linear(in_features=opt['bert']['config_len'], out_features=self.opt['embed']['embed_dim'])
         self.dropout = opt['bert']['dropout_fc']
 
     def forward(self, sent_embs):
-        # print("input_ids", type(input_ids))
-        # print("token_type_ids", type(token_type_ids))
-        # print("attention_mask", type(attention_mask))
-        # self.bert.eval() # freeze bert 暂时取消看看是否会引起nan的问题
         with torch.no_grad():
             x_t_vec = sent_embs
-    
-        # if self.dropout >= 0:
-        #     out = F.dropout(cls_t_vec, self.dropout)
-        # out = self.to_out(out)
+        # sent_embs in model: torch.Size([100, 768]) torch.float32 | test: torch.float64
+        # print(f"sent_embs in model: {x_t_vec.dtype}")
+        
         out = F.relu(self.to_out(x_t_vec))
         if self.dropout >= 0:
             out = F.dropout(out, self.dropout)
-
         return out
 
 
